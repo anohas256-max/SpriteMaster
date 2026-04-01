@@ -629,6 +629,7 @@ class SpriteMasterProApp(ctk.CTk):
         self.update_all_views()
 
     # --- ИНСТРУМЕНТЫ (ЛКМ) ---
+    # --- ИНСТРУМЕНТЫ (ЛКМ) ---
     def set_pivot_from_transformed_space(self, dx, dy):
         tc_x = dx / self.view_zoom
         tc_y = dy / self.view_zoom
@@ -639,7 +640,8 @@ class SpriteMasterProApp(ctk.CTk):
             self.loupe_center_x = tc_x
             self.loupe_center_y = tc_y
             
-        self.update_all_views()
+        # ВОТ ЭТОЙ СТРОЧКИ НЕ ХВАТАЛО! Мы забыли сказать движку пересчитать графику
+        self.recalculate_sprite()
 
     def on_lmb_press(self, event):
         cx = self.raw_canvas.canvasx(event.x)
@@ -911,29 +913,34 @@ class SpriteMasterProApp(ctk.CTk):
         cvs_w = self.ready_canvas.winfo_width()
         cvs_h = self.ready_canvas.winfo_height()
         if cvs_w < 10: 
-            cvs_w = self.final_out_w
-            cvs_h = self.final_out_h
+            cvs_w = int(self.final_out_w * self.res_zoom)
+            cvs_h = int(self.final_out_h * self.res_zoom)
         
-        offset_x = max(0, (cvs_w - display_img.width) // 2)
-        offset_y = max(0, (cvs_h - display_img.height) // 2)
+        # ИСПРАВЛЕНИЕ 1: Убрали max(0, ...). Теперь зум центрируется идеально всегда!
+        offset_x = (cvs_w - display_img.width) // 2
+        offset_y = (cvs_h - display_img.height) // 2
         
         self.ready_canvas.create_image(offset_x, offset_y, anchor=tk.NW, image=self.tk_ready)
         
-        if not animating:
+        # ИСПРАВЛЕНИЕ 2: Пивот теперь рисуется и во время анимации!
+        if animating:
+            z_tc_x = offset_x + display_img.width / 2
+            z_tc_y = offset_y + display_img.height / 2
+        else:
             z_tc_x = offset_x + tc_x * self.res_zoom
             z_tc_y = offset_y + tc_y * self.res_zoom
-            z_out_w = self.final_out_w * self.res_zoom
-            z_out_h = self.final_out_h * self.res_zoom
-
+            
             if self.bounds_toggle.get():
+                z_out_w = self.final_out_w * self.res_zoom
+                z_out_h = self.final_out_h * self.res_zoom
                 self.ready_canvas.create_rectangle(offset_x, offset_y, offset_x + z_out_w, offset_y + z_out_h, outline="#ffaa00", dash=(4,4), tags="bounds")
 
-            if self.pivot_toggle.get():
-                d = self.pivot_viz_size * self.res_zoom / 2
-                self.ready_canvas.create_line(z_tc_x-d, z_tc_y, z_tc_x+d, z_tc_y, fill=self.pivot_color, width=2)
-                self.ready_canvas.create_line(z_tc_x, z_tc_y-d, z_tc_x, z_tc_y+d, fill=self.pivot_color, width=2)
-                self.ready_canvas.create_oval(z_tc_x-3, z_tc_y-3, z_tc_x+3, z_tc_y+3, fill=self.pivot_color)
-
+        if self.pivot_toggle.get():
+            d = self.pivot_viz_size * self.res_zoom / 2
+            self.ready_canvas.create_line(z_tc_x-d, z_tc_y, z_tc_x+d, z_tc_y, fill=self.pivot_color, width=2)
+            self.ready_canvas.create_line(z_tc_x, z_tc_y-d, z_tc_x, z_tc_y+d, fill=self.pivot_color, width=2)
+            self.ready_canvas.create_oval(z_tc_x-3, z_tc_y-3, z_tc_x+3, z_tc_y+3, fill=self.pivot_color)
+            
     def save_and_next(self):
         if self.ready_img is not None:
             folder_name = f"ready_{self.final_out_w}x{self.final_out_h}"
